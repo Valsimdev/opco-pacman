@@ -145,6 +145,12 @@ function drawHUD( ctx, game, W ) {
 }
 
 const GHOST_COLORS = [ '#ff0000', '#00ffff', '#ffb8ff', '#ffb852' ];
+const GHOST_KIND_COLORS = {
+  hunter:  '#ff0000', // rojo
+  random:  '#00ffff', // cian
+  ambush:  '#ffb8ff', // rosa
+  patrol:  '#ffb852', // naranja
+};
 
 function draw( ctx, game, frame ) {
   const grid = game.grid;
@@ -158,7 +164,7 @@ function draw( ctx, game, frame ) {
   drawDoor( ctx, grid );
   drawDots( ctx, grid );
   drawPacman( ctx, game.pacman, frame );
-  game.ghosts.forEach( ( g, i ) => drawGhost( ctx, g, GHOST_COLORS[ i ] || '#ff0000' ) );
+  game.ghosts.forEach( ( g, i ) => drawGhost( ctx, g, GHOST_KIND_COLORS[ g.kind ] || GHOST_COLORS[ i ] || '#ff0000' ) );
   drawHUD( ctx, game, W );
 }
 
