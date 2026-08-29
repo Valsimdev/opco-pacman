@@ -13,6 +13,14 @@ const OPPOSITE = { left: 'right', right: 'left', up: 'down', down: 'up' };
 const PACMAN_SPEED = 0.125; // 1/8 celda/frame -> alinea cada 8 frames
 const GHOST_SPEED = 0.1;    // 1/10 celda/frame
 
+// Esquinas para 'patrol' (horario): TL, TR, BR, BL
+const CORNERS = [
+  { x: 1, y: 1 }, { x: 26, y: 1 }, { x: 26, y: 29 }, { x: 1, y: 29 },
+];
+
+// Celda de salida del pen (arriba de la puerta)
+const PEN_EXIT = { x: 13, y: 11 };
+
 // Crea una partida nueva. Copia MAZE (pristino) a game.grid para poder comer
 // dots sin destruir el original, y reiniciar.
 function createGame() {
@@ -36,12 +44,16 @@ function createGame() {
       nextDir: null,
       speed: PACMAN_SPEED,
     },
-    ghosts: GHOST_STARTS.map( ( g ) => ( {
+    ghosts: GHOST_STARTS.map( ( g, i ) => ( {
       x: g.x,
       y: g.y,
       dir: 'up',
       speed: GHOST_SPEED,
       kind: g.kind,
+      releaseAt: i * 120,  // frame en que se libera (0,120,240,360)
+      inPen: true,         // true mientras este dentro del pen
+      bobDir: 1,           // +1/-1 para el rebote vertical mientras espera
+      corner: 0,           // indice de esquina actual (solo 'patrol')
     } ) ),
   };
 }
