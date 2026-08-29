@@ -249,6 +249,10 @@ function resetPositions( game ) {
     g.x = GHOST_STARTS[ i ].x;
     g.y = GHOST_STARTS[ i ].y;
     g.dir = 'up';
+    g.inPen = true;
+    g.releaseAt = game.resetFrame + i * 120;
+    g.bobDir = 1;
+    g.corner = 0;
   } );
 }
 
@@ -267,6 +271,7 @@ function update( game ) {
         game.state = 'lost';
         return;
       }
+      game.resetFrame = game.frame;
       resetPositions( game );
       break;
     }
