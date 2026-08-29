@@ -33,6 +33,7 @@ function createGame() {
 
   return {
     state: 'start',
+    frame: 0,
     score: 0,
     lives: 3,
     dotsRemaining: dots,
@@ -157,6 +158,50 @@ function moveGhost( game, g ) {
   const grid = game.grid;
   const width = grid[ 0 ].length;
 
+  // --- Rutina del pen (antes de decideGhost) ---
+  // Espera: rebote vertical entre y=13 y y=15 dentro del pen.
+  if ( game.frame < g.releaseAt ) {
+    if ( aligned( g.x ) && aligned( g.y ) ) {
+      g.y = Math.round( g.y );
+      if ( g.y >= 15 ) g.bobDir = -1;
+      else if ( g.y <= 13 ) g.bobDir = 1;
+    }
+    g.y += g.bobDir * g.speed;
+    return;
+  }
+
+  // Salida: decision voraz hacia PEN_EXIT.
+  if ( g.inPen ) {
+    if ( aligned( g.x ) && aligned( g.y ) ) {
+      g.x = Math.round( g.x );
+      g.y = Math.round( g.y );
+      const options = Object.keys( DIRS ).filter(
+        ( dir ) => dir !== OPPOSITE[ g.dir ] && canMove( grid, g.x, g.y, dir, 'ghost' )
+      );
+      const choices = options.length ? options : [ '' + OPPOSITE[ g.dir ] ];
+      let best = choices[ 0 ];
+      let bestDist = Infinity;
+      for ( const dir of choices ) {
+        const d = DIRS[ dir ];
+        const nx = g.x + d.x;
+        const ny = g.y + d.y;
+        const dist = Math.abs( nx - PEN_EXIT.x ) + Math.abs( ny - PEN_EXIT.y );
+        if ( dist < bestDist ) {
+          bestDist = dist;
+          best = dir;
+        }
+      }
+      g.dir = best;
+      if ( !canMove( grid, g.x, g.y, g.dir, 'ghost' ) ) return;
+    }
+    const d = DIRS[ g.dir ];
+    g.x += d.x * g.speed;
+    g.y += d.y * g.speed;
+    if ( Math.round( g.y ) <= 11 ) g.inPen = false;
+    return;
+  }
+
+  // --- Fuera del pen: decideGhost normal ---
   if ( aligned( g.x ) && aligned( g.y ) ) {
     g.x = Math.round( g.x );
     g.y = Math.round( g.y );
@@ -204,6 +249,8 @@ function update( game ) {
   }
 
   if ( game.dotsRemaining <= 0 ) game.state = 'won';
+
+  game.frame++;
 }
 
 window.createGame = createGame;
