@@ -13,6 +13,14 @@ const OPPOSITE = { left: 'right', right: 'left', up: 'down', down: 'up' };
 const PACMAN_SPEED = 0.125; // 1/8 celda/frame -> alinea cada 8 frames
 const GHOST_SPEED = 0.1;    // 1/10 celda/frame
 
+// Esquinas para 'patrol' (horario): TL, TR, BR, BL
+const CORNERS = [
+  { x: 1, y: 1 }, { x: 26, y: 1 }, { x: 26, y: 29 }, { x: 1, y: 29 },
+];
+
+// Celda de salida del pen (arriba de la puerta)
+const PEN_EXIT = { x: 13, y: 11 };
+
 // Crea una partida nueva. Copia MAZE (pristino) a game.grid para poder comer
 // dots sin destruir el original, y reiniciar.
 function createGame() {
@@ -25,6 +33,7 @@ function createGame() {
 
   return {
     state: 'start',
+    frame: 0,
     score: 0,
     lives: 3,
     dotsRemaining: dots,
@@ -36,12 +45,16 @@ function createGame() {
       nextDir: null,
       speed: PACMAN_SPEED,
     },
-    ghosts: GHOST_STARTS.map( ( g ) => ( {
+    ghosts: GHOST_STARTS.map( ( g, i ) => ( {
       x: g.x,
       y: g.y,
       dir: 'up',
       speed: GHOST_SPEED,
       kind: g.kind,
+      releaseAt: i * 120,  // frame en que se libera (0,120,240,360)
+      inPen: true,         // true mientras este dentro del pen
+      bobDir: 1,           // +1/-1 para el rebote vertical mientras espera
+      corner: 0,           // indice de esquina actual (solo 'patrol')
     } ) ),
   };
 }
@@ -110,6 +123,23 @@ function movePacman( game ) {
   wrapTunnel( p, width );
 }
 
+// Seleccion voraz por distancia Manhattan hacia un objetivo (tx,ty).
+function greedyDir( g, choices, tx, ty ) {
+  let best = choices[ 0 ];
+  let bestDist = Infinity;
+  for ( const dir of choices ) {
+    const d = DIRS[ dir ];
+    const nx = g.x + d.x;
+    const ny = g.y + d.y;
+    const dist = Math.abs( nx - tx ) + Math.abs( ny - ty );
+    if ( dist < bestDist ) {
+      bestDist = dist;
+      best = dir;
+    }
+  }
+  return best;
+}
+
 function decideGhost( game, g ) {
   const grid = game.grid;
   const p = game.pacman;
@@ -121,22 +151,29 @@ function decideGhost( game, g ) {
   const choices = options.length ? options : [ '' + OPPOSITE[ g.dir ] ];
 
   if ( g.kind === 'hunter' ) {
+    // Persigue agresivamente la celda exacta de Pac-Man.
     const px = Math.round( p.x );
     const py = Math.round( p.y );
-    let best = choices[ 0 ];
-    let bestDist = Infinity;
-    for ( const dir of choices ) {
-      const d = DIRS[ dir ];
-      const nx = g.x + d.x;
-      const ny = g.y + d.y;
-      const dist = Math.abs( nx - px ) + Math.abs( ny - py );
-      if ( dist < bestDist ) {
-        bestDist = dist;
-        best = dir;
-      }
+    g.dir = greedyDir( g, choices, px, py );
+  } else if ( g.kind === 'ambush' ) {
+    // Apunta a la celda 4 posiciones adelante de Pac-Man segun su dir.
+    const pd = DIRS[ p.dir ];
+    const tx = Math.round( p.x ) + 4 * pd.x;
+    const ty = Math.round( p.y ) + 4 * pd.y;
+    g.dir = greedyDir( g, choices, tx, ty );
+  } else if ( g.kind === 'patrol' ) {
+    // Cicla las 4 esquinas en sentido horario.
+    let tx = CORNERS[ g.corner ].x;
+    let ty = CORNERS[ g.corner ].y;
+    // Cerca de la esquina actual: avanzar a la siguiente.
+    if ( Math.abs( g.x - tx ) + Math.abs( g.y - ty ) <= 1 ) {
+      g.corner = ( g.corner + 1 ) % 4;
+      tx = CORNERS[ g.corner ].x;
+      ty = CORNERS[ g.corner ].y;
     }
-    g.dir = best;
+    g.dir = greedyDir( g, choices, tx, ty );
   } else {
+    // random: elige direccion aleatoria entre las validas.
     g.dir = choices[ Math.floor( Math.random() * choices.length ) ];
   }
 }
@@ -145,6 +182,50 @@ function moveGhost( game, g ) {
   const grid = game.grid;
   const width = grid[ 0 ].length;
 
+  // --- Rutina del pen (antes de decideGhost) ---
+  // Espera: rebote vertical entre y=13 y y=15 dentro del pen.
+  if ( game.frame < g.releaseAt ) {
+    if ( aligned( g.x ) && aligned( g.y ) ) {
+      g.y = Math.round( g.y );
+      if ( g.y >= 15 ) g.bobDir = -1;
+      else if ( g.y <= 13 ) g.bobDir = 1;
+    }
+    g.y += g.bobDir * g.speed;
+    return;
+  }
+
+  // Salida: decision voraz hacia PEN_EXIT.
+  if ( g.inPen ) {
+    if ( aligned( g.x ) && aligned( g.y ) ) {
+      g.x = Math.round( g.x );
+      g.y = Math.round( g.y );
+      const options = Object.keys( DIRS ).filter(
+        ( dir ) => dir !== OPPOSITE[ g.dir ] && canMove( grid, g.x, g.y, dir, 'ghost' )
+      );
+      const choices = options.length ? options : [ '' + OPPOSITE[ g.dir ] ];
+      let best = choices[ 0 ];
+      let bestDist = Infinity;
+      for ( const dir of choices ) {
+        const d = DIRS[ dir ];
+        const nx = g.x + d.x;
+        const ny = g.y + d.y;
+        const dist = Math.abs( nx - PEN_EXIT.x ) + Math.abs( ny - PEN_EXIT.y );
+        if ( dist < bestDist ) {
+          bestDist = dist;
+          best = dir;
+        }
+      }
+      g.dir = best;
+      if ( !canMove( grid, g.x, g.y, g.dir, 'ghost' ) ) return;
+    }
+    const d = DIRS[ g.dir ];
+    g.x += d.x * g.speed;
+    g.y += d.y * g.speed;
+    if ( Math.round( g.y ) <= 11 ) g.inPen = false;
+    return;
+  }
+
+  // --- Fuera del pen: decideGhost normal ---
   if ( aligned( g.x ) && aligned( g.y ) ) {
     g.x = Math.round( g.x );
     g.y = Math.round( g.y );
@@ -168,6 +249,10 @@ function resetPositions( game ) {
     g.x = GHOST_STARTS[ i ].x;
     g.y = GHOST_STARTS[ i ].y;
     g.dir = 'up';
+    g.inPen = true;
+    g.releaseAt = game.resetFrame + i * 120;
+    g.bobDir = 1;
+    g.corner = 0;
   } );
 }
 
@@ -186,12 +271,15 @@ function update( game ) {
         game.state = 'lost';
         return;
       }
+      game.resetFrame = game.frame;
       resetPositions( game );
       break;
     }
   }
 
   if ( game.dotsRemaining <= 0 ) game.state = 'won';
+
+  game.frame++;
 }
 
 window.createGame = createGame;
