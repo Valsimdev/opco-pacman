@@ -123,6 +123,23 @@ function movePacman( game ) {
   wrapTunnel( p, width );
 }
 
+// Seleccion voraz por distancia Manhattan hacia un objetivo (tx,ty).
+function greedyDir( g, choices, tx, ty ) {
+  let best = choices[ 0 ];
+  let bestDist = Infinity;
+  for ( const dir of choices ) {
+    const d = DIRS[ dir ];
+    const nx = g.x + d.x;
+    const ny = g.y + d.y;
+    const dist = Math.abs( nx - tx ) + Math.abs( ny - ty );
+    if ( dist < bestDist ) {
+      bestDist = dist;
+      best = dir;
+    }
+  }
+  return best;
+}
+
 function decideGhost( game, g ) {
   const grid = game.grid;
   const p = game.pacman;
@@ -134,22 +151,29 @@ function decideGhost( game, g ) {
   const choices = options.length ? options : [ '' + OPPOSITE[ g.dir ] ];
 
   if ( g.kind === 'hunter' ) {
+    // Persigue agresivamente la celda exacta de Pac-Man.
     const px = Math.round( p.x );
     const py = Math.round( p.y );
-    let best = choices[ 0 ];
-    let bestDist = Infinity;
-    for ( const dir of choices ) {
-      const d = DIRS[ dir ];
-      const nx = g.x + d.x;
-      const ny = g.y + d.y;
-      const dist = Math.abs( nx - px ) + Math.abs( ny - py );
-      if ( dist < bestDist ) {
-        bestDist = dist;
-        best = dir;
-      }
+    g.dir = greedyDir( g, choices, px, py );
+  } else if ( g.kind === 'ambush' ) {
+    // Apunta a la celda 4 posiciones adelante de Pac-Man segun su dir.
+    const pd = DIRS[ p.dir ];
+    const tx = Math.round( p.x ) + 4 * pd.x;
+    const ty = Math.round( p.y ) + 4 * pd.y;
+    g.dir = greedyDir( g, choices, tx, ty );
+  } else if ( g.kind === 'patrol' ) {
+    // Cicla las 4 esquinas en sentido horario.
+    let tx = CORNERS[ g.corner ].x;
+    let ty = CORNERS[ g.corner ].y;
+    // Cerca de la esquina actual: avanzar a la siguiente.
+    if ( Math.abs( g.x - tx ) + Math.abs( g.y - ty ) <= 1 ) {
+      g.corner = ( g.corner + 1 ) % 4;
+      tx = CORNERS[ g.corner ].x;
+      ty = CORNERS[ g.corner ].y;
     }
-    g.dir = best;
+    g.dir = greedyDir( g, choices, tx, ty );
   } else {
+    // random: elige direccion aleatoria entre las validas.
     g.dir = choices[ Math.floor( Math.random() * choices.length ) ];
   }
 }
