@@ -270,7 +270,14 @@ function moveGhost( game, g ) {
     const d = DIRS[ g.dir ];
     g.x += d.x * g.speed;
     g.y += d.y * g.speed;
-    if ( Math.round( g.y ) <= 11 ) g.inPen = false;
+    if ( Math.round( g.y ) <= 11 ) {
+      g.inPen = false;
+      // Si sale del pen a media sesion asustada, se asusta.
+      if ( game.frightTimer > 0 ) {
+        g.frightened = true;
+        g.speed = FRIGHT_SPEED;
+      }
+    }
     return;
   }
 
@@ -294,6 +301,9 @@ function resetPositions( game ) {
   p.y = PACMAN_START.y;
   p.dir = 'left';
   p.nextDir = null;
+  // Perder una vida cancela el modo asustado.
+  game.frightTimer = 0;
+  game.frightCombo = 0;
   game.ghosts.forEach( ( g, i ) => {
     g.x = GHOST_STARTS[ i ].x;
     g.y = GHOST_STARTS[ i ].y;
@@ -302,6 +312,8 @@ function resetPositions( game ) {
     g.releaseAt = game.resetFrame + i * 120;
     g.bobDir = 1;
     g.corner = 0;
+    g.frightened = false;
+    g.speed = GHOST_SPEED;
   } );
 }
 
