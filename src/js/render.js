@@ -66,7 +66,7 @@ function drawDoor( ctx, grid ) {
   ctx.stroke();
 }
 
-function drawDots( ctx, grid ) {
+function drawDots( ctx, grid, frame ) {
   ctx.fillStyle = DOT_COLOR;
   for ( let y = 0; y < grid.length; y++ ) {
     for ( let x = 0; x < grid[ 0 ].length; x++ ) {
@@ -74,6 +74,17 @@ function drawDots( ctx, grid ) {
       const { cx, cy } = cellCenter( x, y );
       ctx.beginPath();
       ctx.arc( cx, cy, 2.5, 0, Math.PI * 2 );
+      ctx.fill();
+    }
+  }
+  // Power Pellets (tile 4): circulo grande con leve pulso por frame.
+  for ( let y = 0; y < grid.length; y++ ) {
+    for ( let x = 0; x < grid[ 0 ].length; x++ ) {
+      if ( grid[ y ][ x ] !== 4 ) continue;
+      const { cx, cy } = cellCenter( x, y );
+      const pulse = Math.sin( frame * 0.15 ) * 1.2 + 6;
+      ctx.beginPath();
+      ctx.arc( cx, cy, pulse, 0, Math.PI * 2 );
       ctx.fill();
     }
   }
@@ -98,13 +109,48 @@ function drawPacman( ctx, p, frame ) {
   ctx.fill();
 }
 
-function drawGhost( ctx, g, color ) {
+function drawGhost( ctx, g, color, game ) {
   const { cx, cy } = cellCenter( g.x, g.y );
   const r = TILE / 2 - 1;
   const top = cy - r;
   const bottom = cy + r;
   const left = cx - r;
   const right = cx + r;
+
+  // Modo asustado: cuerpo azul con cara asustada; parpadeo azul/blanco
+  // en los ultimos 120 frames del modo.
+  if ( g.frightened ) {
+    let bodyColor = '#2121ff';
+    if ( game.frightTimer <= 120 ) {
+      bodyColor = ( game.frame % 20 < 10 ) ? '#2121ff' : '#fff';
+    }
+    ctx.fillStyle = bodyColor;
+    ctx.beginPath();
+    ctx.arc( cx, cy - 1, r, Math.PI, 0, false );
+    ctx.lineTo( right, bottom );
+    ctx.lineTo( right - r * 0.66, bottom - 4 );
+    ctx.lineTo( cx, bottom );
+    ctx.lineTo( left + r * 0.66, bottom - 4 );
+    ctx.lineTo( left, bottom );
+    ctx.closePath();
+    ctx.fill();
+    // Cara asustada: ojos pequenos + boca ondulada blanca.
+    ctx.fillStyle = '#fff';
+    for ( const off of [ -3, 3 ] ) {
+      ctx.beginPath();
+      ctx.arc( cx + off, cy - 2, 1.6, 0, Math.PI * 2 );
+      ctx.fill();
+    }
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo( left + 4, cy + 4 );
+    ctx.lineTo( cx - 2, cy + 2 );
+    ctx.lineTo( cx + 2, cy + 4 );
+    ctx.lineTo( right - 4, cy + 2 );
+    ctx.stroke();
+    return;
+  }
 
   ctx.fillStyle = color;
   ctx.beginPath();
@@ -162,9 +208,9 @@ function draw( ctx, game, frame ) {
 
   drawWalls( ctx, grid );
   drawDoor( ctx, grid );
-  drawDots( ctx, grid );
+  drawDots( ctx, grid, frame );
   drawPacman( ctx, game.pacman, frame );
-  game.ghosts.forEach( ( g, i ) => drawGhost( ctx, g, GHOST_KIND_COLORS[ g.kind ] || GHOST_COLORS[ i ] || '#ff0000' ) );
+  game.ghosts.forEach( ( g, i ) => drawGhost( ctx, g, GHOST_KIND_COLORS[ g.kind ] || GHOST_COLORS[ i ] || '#ff0000', game ) );
   drawHUD( ctx, game, W );
 }
 
