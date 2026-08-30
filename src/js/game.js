@@ -64,14 +64,19 @@ function aligned( v ) {
 }
 
 // Una celda es muro para el actor dado?
-//   pacman: bloqueado por pared (1) y puerta (3)
-//   ghost:  bloqueado solo por pared (1)
+//   pacman:     bloqueado por pared (1) y puerta (3)
+//   ghost:      bloqueado solo por pared (1)  (puerta transitable — solo durante salida)
+//   ghost-out:  bloqueado por pared (1) y puerta (3)  (fantasma ya libre, no re-entra)
+//
+// Documentacion de actores (cabecera de game.js):
+//   salida (inPen=true)  → usar 'ghost'      (la puerta es transitable)
+//   fuera   (inPen=false) → usar 'ghost-out'  (la puerta bloquea el regreso)
 function isWall( grid, x, y, actor ) {
   if ( y < 0 || y >= grid.length ) return true;
   if ( x < 0 || x >= grid[ 0 ].length ) return true;
   const v = grid[ y ][ x ];
   if ( v === 1 ) return true;
-  if ( v === 3 && actor === 'pacman' ) return true;
+  if ( v === 3 && actor !== 'ghost' ) return true;  // puerta bloquea a todos salvo al fantasma en salida
   return false;
 }
 
@@ -145,7 +150,7 @@ function decideGhost( game, g ) {
   const p = game.pacman;
 
   const options = Object.keys( DIRS ).filter(
-    ( dir ) => dir !== OPPOSITE[ g.dir ] && canMove( grid, g.x, g.y, dir, 'ghost' )
+    ( dir ) => dir !== OPPOSITE[ g.dir ] && canMove( grid, g.x, g.y, dir, 'ghost-out' )
   );
   // Sin salida (callejon): permitir el giro de 180.
   const choices = options.length ? options : [ '' + OPPOSITE[ g.dir ] ];
@@ -230,7 +235,7 @@ function moveGhost( game, g ) {
     g.x = Math.round( g.x );
     g.y = Math.round( g.y );
     decideGhost( game, g );
-    if ( !canMove( grid, g.x, g.y, g.dir, 'ghost' ) ) return;
+    if ( !canMove( grid, g.x, g.y, g.dir, 'ghost-out' ) ) return;
   }
 
   const d = DIRS[ g.dir ];
