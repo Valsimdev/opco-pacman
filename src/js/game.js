@@ -179,6 +179,26 @@ function decideGhost( game, g ) {
   // Sin salida (callejon): permitir el giro de 180.
   const choices = options.length ? options : [ '' + OPPOSITE[ g.dir ] ];
 
+  // Modo asustado: huyen de Pac-Man (greedy invertido: maximiza distancia Manhattan).
+  if ( g.frightened ) {
+    const px = Math.round( p.x );
+    const py = Math.round( p.y );
+    let best = choices[ 0 ];
+    let bestDist = -Infinity;
+    for ( const dir of choices ) {
+      const d = DIRS[ dir ];
+      const nx = g.x + d.x;
+      const ny = g.y + d.y;
+      const dist = Math.abs( nx - px ) + Math.abs( ny - py );
+      if ( dist > bestDist ) {
+        bestDist = dist;
+        best = dir;
+      }
+    }
+    g.dir = best;
+    return;
+  }
+
   if ( g.kind === 'hunter' ) {
     // Persigue agresivamente la celda exacta de Pac-Man.
     const px = Math.round( p.x );
