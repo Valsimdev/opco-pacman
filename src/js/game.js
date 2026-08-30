@@ -150,7 +150,7 @@ function decideGhost( game, g ) {
   const p = game.pacman;
 
   const options = Object.keys( DIRS ).filter(
-    ( dir ) => dir !== OPPOSITE[ g.dir ] && canMove( grid, g.x, g.y, dir, 'ghost' )
+    ( dir ) => dir !== OPPOSITE[ g.dir ] && canMove( grid, g.x, g.y, dir, 'ghost-out' )
   );
   // Sin salida (callejon): permitir el giro de 180.
   const choices = options.length ? options : [ '' + OPPOSITE[ g.dir ] ];
