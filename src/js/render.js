@@ -66,7 +66,7 @@ function drawDoor( ctx, grid ) {
   ctx.stroke();
 }
 
-function drawDots( ctx, grid ) {
+function drawDots( ctx, grid, frame ) {
   ctx.fillStyle = DOT_COLOR;
   for ( let y = 0; y < grid.length; y++ ) {
     for ( let x = 0; x < grid[ 0 ].length; x++ ) {
@@ -74,6 +74,17 @@ function drawDots( ctx, grid ) {
       const { cx, cy } = cellCenter( x, y );
       ctx.beginPath();
       ctx.arc( cx, cy, 2.5, 0, Math.PI * 2 );
+      ctx.fill();
+    }
+  }
+  // Power Pellets (tile 4): circulo grande con leve pulso por frame.
+  for ( let y = 0; y < grid.length; y++ ) {
+    for ( let x = 0; x < grid[ 0 ].length; x++ ) {
+      if ( grid[ y ][ x ] !== 4 ) continue;
+      const { cx, cy } = cellCenter( x, y );
+      const pulse = Math.sin( frame * 0.15 ) * 1.2 + 6;
+      ctx.beginPath();
+      ctx.arc( cx, cy, pulse, 0, Math.PI * 2 );
       ctx.fill();
     }
   }
@@ -162,7 +173,7 @@ function draw( ctx, game, frame ) {
 
   drawWalls( ctx, grid );
   drawDoor( ctx, grid );
-  drawDots( ctx, grid );
+  drawDots( ctx, grid, frame );
   drawPacman( ctx, game.pacman, frame );
   game.ghosts.forEach( ( g, i ) => drawGhost( ctx, g, GHOST_KIND_COLORS[ g.kind ] || GHOST_COLORS[ i ] || '#ff0000' ) );
   drawHUD( ctx, game, W );
