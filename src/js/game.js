@@ -326,16 +326,32 @@ function update( game ) {
     }
   }
 
-  for ( const g of game.ghosts ) {
+  for ( let i = 0; i < game.ghosts.length; i++ ) {
+    const g = game.ghosts[ i ];
     if ( collides( game.pacman, g ) ) {
-      game.lives--;
-      if ( game.lives <= 0 ) {
-        game.state = 'lost';
-        return;
+      if ( g.frightened ) {
+        // Comer fantasma asustado: puntos crecientes + teletransporte al pen.
+        game.score += GHOST_EAT_SCORE[ game.frightCombo ];
+        game.frightCombo = Math.min( game.frightCombo + 1, 3 );
+        g.x = GHOST_STARTS[ i ].x;
+        g.y = GHOST_STARTS[ i ].y;
+        g.inPen = true;
+        g.dir = 'up';
+        g.releaseAt = game.frame + i * 120;
+        g.bobDir = 1;
+        g.corner = 0;
+        g.frightened = false;
+        g.speed = GHOST_SPEED;
+      } else {
+        game.lives--;
+        if ( game.lives <= 0 ) {
+          game.state = 'lost';
+          return;
+        }
+        game.resetFrame = game.frame;
+        resetPositions( game );
+        break;
       }
-      game.resetFrame = game.frame;
-      resetPositions( game );
-      break;
     }
   }
 
