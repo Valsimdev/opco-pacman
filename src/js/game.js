@@ -13,6 +13,13 @@ const OPPOSITE = { left: 'right', right: 'left', up: 'down', down: 'up' };
 const PACMAN_SPEED = 0.125; // 1/8 celda/frame -> alinea cada 8 frames
 const GHOST_SPEED = 0.1;    // 1/10 celda/frame
 
+const POWER_PELLET = 4;
+const FRIGHT_DURATION = 420;     // frames (~7 s a 60fps)
+const FRIGHT_FLASH_FRAMES = 120; // ultimos 120 frames -> parpadeo
+const FRIGHT_SPEED = 0.05;       // mitad de GHOST_SPEED
+const POWER_PELLET_SCORE = 50;
+const GHOST_EAT_SCORE = [ 200, 400, 800, 1600 ];
+
 // Esquinas para 'patrol' (horario): TL, TR, BR, BL
 const CORNERS = [
   { x: 1, y: 1 }, { x: 26, y: 1 }, { x: 26, y: 29 }, { x: 1, y: 29 },
@@ -37,6 +44,8 @@ function createGame() {
     score: 0,
     lives: 3,
     dotsRemaining: dots,
+    frightTimer: 0,    // frames restantes del modo asustado
+    frightCombo: 0,    // indice en GHOST_EAT_SCORE; resetea al comer pellet
     grid,
     pacman: {
       x: PACMAN_START.x,
@@ -55,6 +64,7 @@ function createGame() {
       inPen: true,         // true mientras este dentro del pen
       bobDir: 1,           // +1/-1 para el rebote vertical mientras espera
       corner: 0,           // indice de esquina actual (solo 'patrol')
+      frightened: false,   // true solo si !inPen y frightTimer > 0
     } ) ),
   };
 }
@@ -121,8 +131,16 @@ function movePacman( game ) {
     // Comer Power Pellet.
     if ( grid[ p.y ][ p.x ] === 4 ) {
       grid[ p.y ][ p.x ] = 0;
-      game.score += 50;
+      game.score += POWER_PELLET_SCORE;
       game.dotsRemaining--;
+      game.frightTimer = FRIGHT_DURATION;
+      game.frightCombo = 0;
+      game.ghosts.forEach( ( g ) => {
+        if ( !g.inPen ) {
+          g.frightened = true;
+          g.speed = FRIGHT_SPEED;
+        }
+      } );
     }
     // Si no puede seguir, se detiene en la celda.
     if ( !canMove( grid, p.x, p.y, p.dir, 'pacman' ) ) return;
@@ -274,6 +292,19 @@ function collides( a, b ) {
 function update( game ) {
   movePacman( game );
   game.ghosts.forEach( ( g ) => moveGhost( game, g ) );
+
+  // Modo asustado: decrementar temporizador y restaurar al expirar.
+  if ( game.frightTimer > 0 ) {
+    game.frightTimer--;
+    if ( game.frightTimer <= 0 ) {
+      game.frightTimer = 0;
+      game.frightCombo = 0;
+      game.ghosts.forEach( ( g ) => {
+        g.frightened = false;
+        g.speed = GHOST_SPEED;
+      } );
+    }
+  }
 
   for ( const g of game.ghosts ) {
     if ( collides( game.pacman, g ) ) {
